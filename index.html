@@ -221,11 +221,11 @@
             border-radius: 50%;
         }
 
-        .toggle-checkbox:checked + .toggle-slider {
+        .toggle-checkbox:checked+.toggle-slider {
             background-color: var(--primary-color);
         }
 
-        .toggle-checkbox:checked + .toggle-slider:before {
+        .toggle-checkbox:checked+.toggle-slider:before {
             transform: translateX(30px);
         }
 
@@ -948,11 +948,11 @@
                 id: 7,
                 text: "Какие два взгляда на системность объектов исследования используются в познании.",
                 options: [
-                "А) фундаментальное свойство объектов познания",
-                "Б) как способ организации мышления исследователя",
-                "В) множество взаимосвязанных элементов.",
-                "Г) наличие специфических системных свойств у объекта исследования."
-            ],
+                    "А) фундаментальное свойство объектов познания",
+                    "Б) как способ организации мышления исследователя",
+                    "В) множество взаимосвязанных элементов.",
+                    "Г) наличие специфических системных свойств у объекта исследования."
+                ],
                 correct: [0, 1]
             },
             {
@@ -1475,7 +1475,7 @@
 
             // Обработчики событий
             themeSwitch.addEventListener('click', toggleTheme);
-            
+
             numbersToggle.addEventListener('change', toggleQuestionNumbers);
 
             modeCards.forEach(card => {
@@ -1519,7 +1519,7 @@
         function updateQuestionDisplay() {
             const question = examQuestions[currentQuestionIndex];
             if (!question) return;
-            
+
             if (showNumbers) {
                 questionTextEl.textContent = `${question.id}. ${question.text}`;
             } else {
@@ -1591,7 +1591,7 @@
             // Определение типа вопроса
             const isMultiple = question.correct.length > 1;
             questionTypeEl.textContent = isMultiple ? 'Несколько ответов' : 'Один ответ';
-            
+
             // Установка текста вопроса с учетом настройки номеров
             updateQuestionDisplay();
 
@@ -1681,6 +1681,41 @@
             answerIndicator.textContent = isCorrect ? '✓ Правильно!' : '✗ Неправильно';
             answerIndicator.className = `answer-indicator ${isCorrect ? 'correct' : 'incorrect'}`;
             answerIndicator.style.display = 'block';
+
+            // ДОБАВЛЕНО: Если ответ правильный и мы в режиме исправления ошибок, удаляем вопрос из списка ошибок
+            if (isCorrect && currentMode === 'mistakes') {
+                removeQuestionFromMistakes(question.id);
+            }
+        }
+
+        function removeQuestionFromMistakes(questionId) {
+            const index = mistakes.indexOf(questionId);
+            if (index !== -1) {
+                mistakes.splice(index, 1);
+                localStorage.setItem('mistakes', JSON.stringify(mistakes));
+
+                // Обновляем сетку вопросов, если вопрос удален из списка
+                setTimeout(() => {
+                    // Если это был последний вопрос с ошибкой, завершаем тест
+                    if (mistakes.length === 0) {
+                        alert('Все ошибки исправлены! Возвращаемся в главное меню.');
+                        backToMenu();
+                    } else {
+                        // Обновляем список вопросов для режима исправления ошибок
+                        if (currentMode === 'mistakes') {
+                            examQuestions = questions.filter(q => mistakes.includes(q.id));
+                            // Если текущий вопрос был удален, переходим к следующему
+                            if (!mistakes.includes(questionId)) {
+                                if (currentQuestionIndex >= examQuestions.length) {
+                                    currentQuestionIndex = examQuestions.length - 1;
+                                }
+                                loadQuestion();
+                                updateProgress();
+                            }
+                        }
+                    }
+                }, 1000);
+            }
         }
 
         // Очистка ответа на текущий вопрос
@@ -1788,17 +1823,21 @@
                     testResults.skipped++;
                 } else if (arraysEqual(userAnswer.sort(), correctAnswer.sort())) {
                     testResults.correct++;
+                    // ДОБАВЛЕНО: Удаляем вопрос из ошибок, если он был исправлен
+                    if (currentMode === 'mistakes') {
+                        removeQuestionFromMistakes(question.id);
+                    }
                 } else {
                     testResults.incorrect++;
-                    // Сохраняем ID вопроса с ошибкой
-                    if (!mistakes.includes(question.id)) {
+                    // Сохраняем ID вопроса с ошибкой (только для режимов не "mistakes")
+                    if (currentMode !== 'mistakes' && !mistakes.includes(question.id)) {
                         newMistakes.push(question.id);
                     }
                 }
             });
 
-            // Сохраняем ошибки
-            if (newMistakes.length > 0) {
+            // Сохраняем ошибки (только для режимов не "mistakes")
+            if (currentMode !== 'mistakes' && newMistakes.length > 0) {
                 mistakes = [...new Set([...mistakes, ...newMistakes])];
                 localStorage.setItem('mistakes', JSON.stringify(mistakes));
             }
